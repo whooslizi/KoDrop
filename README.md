@@ -96,7 +96,3 @@ curl -H 'X-KoDrop: 1' -F file=@book.epub 'http://192.168.1.50:3636/api/upload?pa
 ## Development
 
 Run the tests with `luajit spec/kodrop_spec.lua`. Each push to the default branch runs them and publishes a release.
-
-## License
-
-GPL-3.0
