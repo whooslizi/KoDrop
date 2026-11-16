@@ -32,6 +32,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$VERSION" kodrop.koplugin.zip \
-            --title "KoDrop $VERSION" \
+            --title "$VERSION" \
             --target "$GITHUB_SHA" \
             --generate-notes

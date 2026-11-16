@@ -344,7 +344,7 @@ end
 function KoDrop:addToMainMenu(menu_items)
     menu_items.kodrop = {
         text = _("KoDrop"),
-        sorting_hint = "tools",
+        sorting_hint = "network",
         sub_item_table = {
             {
                 text = _("Run server"),

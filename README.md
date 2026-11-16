@@ -10,12 +10,12 @@ Pure Lua, using only what KOReader ships (LuaSocket, lfs, ffi, json).
 2. Over USB, copy the `kodrop.koplugin` folder to `/mnt/us/koreader/plugins/` (`koreader/plugins/` on the USB drive).
 3. Eject the Kindle and restart KOReader.
 
-To update later, use Tools → KoDrop → Check for update. It downloads the latest release from GitHub, replaces the plugin folder and asks to restart KOReader.
+To update later, use Settings → Network → KoDrop → Check for update. It downloads the latest release from GitHub, replaces the plugin folder and asks to restart KOReader.
 
 ## Usage
 
-1. In KOReader, go to Tools → KoDrop → Run server. KOReader asks to turn Wi-Fi on if it's off.
-2. A popup shows the Kindle's IP, port and address. Type the address into a browser, or use Tools → KoDrop → Show QR code.
+1. In KOReader, go to Settings → Network → KoDrop → Run server. KOReader asks to turn Wi-Fi on if it's off.
+2. A popup shows the Kindle's IP, port and address. Type the address into a browser, or use Settings → Network → KoDrop → Show QR code.
 3. In the browser:
    - Drag files onto the page to upload them, or tap Upload. Dropping files on a folder row uploads into that folder.
    - Drag a row onto a folder or a breadcrumb to move it.
