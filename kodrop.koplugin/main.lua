@@ -345,6 +345,7 @@ function KoDrop:addToMainMenu(menu_items)
     menu_items.kodrop = {
         text = _("KoDrop"),
         sorting_hint = "network",
+        checked_func = function() return running ~= nil end,
         sub_item_table = {
             {
                 text = _("Run server"),
