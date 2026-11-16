@@ -22,6 +22,9 @@ local Server = dofile(plugin_dir .. "/server.lua")
 local Api = dofile(plugin_dir .. "/api.lua")
 local html = dofile(plugin_dir .. "/webui.lua")
 
+local VERSION = dofile(plugin_dir .. "/_meta.lua").version
+local REPO = "whooslizi/KoSend"
+
 local DEFAULT_PORT = 3636
 local DEFAULT_ROOT = "/mnt/us"
 local DEFAULT_IDLE = 15
@@ -221,6 +224,105 @@ local function save(key, value)
     restart_if_running()
 end
 
+-- redirects followed by hand: GitHub sends release assets to another https host
+local function http_get(url)
+    local http, ltn12, socketutil = require("socket.http"), require("ltn12"), require("socketutil")
+    socketutil:set_timeout(socketutil.FILE_BLOCK_TIMEOUT, socketutil.FILE_TOTAL_TIMEOUT)
+    for __ = 1, 5 do
+        local body = {}
+        local ___, code, headers = http.request{ url = url, redirect = false, sink = ltn12.sink.table(body) }
+        if code == 301 or code == 302 or code == 307 or code == 308 then
+            url = headers.location
+        else
+            socketutil:reset_timeout()
+            return code == 200, table.concat(body), code
+        end
+    end
+    socketutil:reset_timeout()
+    return false, "", "too many redirects"
+end
+
+local function install(url)
+    local ok, data, code = http_get(url)
+    if not ok then return false, T(_("Download failed: %1"), tostring(code)) end
+    local base = ffiUtil.realpath(plugin_dir)
+    local zip, tmp, old = base .. ".zip", base .. ".new", base .. ".old"
+    local f = io.open(zip, "wb")
+    if not f then return false, T(_("Cannot write %1"), zip) end
+    f:write(data)
+    f:close()
+    if lfs.attributes(tmp) then ffiUtil.purgeDir(tmp) end
+    if lfs.attributes(old) then ffiUtil.purgeDir(old) end
+    lfs.mkdir(tmp)
+
+    local err
+    local arc = require("ffi/archiver").Reader:new()
+    if arc:open(zip) then
+        for entry in arc:iterate() do
+            local rel = entry.mode == "file" and entry.path:match("^kodrop%.koplugin(/.+)$")
+            if rel and not arc:extractToPath(entry.path, tmp .. rel) then
+                err = arc.err or _("Extraction failed")
+                break
+            end
+        end
+        arc:close()
+    else
+        err = _("Invalid archive")
+    end
+    os.remove(zip)
+    if not err and not lfs.attributes(tmp .. "/main.lua") then err = _("main.lua missing from archive") end
+    -- swap whole folders so a failed update never leaves a half-written plugin
+    if not err and not os.rename(base, old) then err = _("Cannot replace the plugin folder") end
+    if not err and not os.rename(tmp, base) then
+        os.rename(old, base)
+        err = _("Cannot replace the plugin folder")
+    end
+    if err then
+        ffiUtil.purgeDir(tmp)
+        return false, err
+    end
+    ffiUtil.purgeDir(old)
+    return true
+end
+
+local function check_update()
+    local checking = InfoMessage:new{ text = _("Checking for updates…") }
+    UIManager:show(checking)
+    UIManager:forceRePaint()
+    local ok, body = http_get("https://api.github.com/repos/" .. REPO .. "/releases/latest")
+    UIManager:close(checking)
+    local okj, release = pcall(JSON.decode, body, JSON.decode.simple)
+    if not ok or not okj or type(release) ~= "table" or not release.tag_name then
+        UIManager:show(InfoMessage:new{ icon = "notice-warning", text = _("Could not check for updates.") })
+        return
+    end
+    if release.tag_name == VERSION then
+        UIManager:show(InfoMessage:new{ text = T(_("KoDrop %1 is up to date."), VERSION) })
+        return
+    end
+    local url
+    for __, asset in ipairs(release.assets or {}) do
+        if asset.name == "kodrop.koplugin.zip" then url = asset.browser_download_url end
+    end
+    if not url then
+        UIManager:show(InfoMessage:new{ icon = "notice-warning", text = _("The latest release has no kodrop.koplugin.zip.") })
+        return
+    end
+    UIManager:show(require("ui/widget/confirmbox"):new{
+        text = T(_("KoDrop %1 is available (installed: %2).\n\nUpdate now?"), release.tag_name, VERSION),
+        ok_text = _("Update"),
+        ok_callback = function()
+            stop()
+            local done, err = install(url)
+            if done then
+                UIManager:askForRestart(T(_("KoDrop updated to %1. Restart KOReader to finish."), release.tag_name))
+            else
+                UIManager:show(InfoMessage:new{ icon = "notice-warning", text = T(_("Update failed:\n%1"), err) })
+            end
+        end,
+    })
+end
+
 local KoDrop = WidgetContainer:extend{
     name = "kodrop",
     is_doc_only = false,
@@ -336,6 +438,11 @@ function KoDrop:addToMainMenu(menu_items)
                         end
                     end)
                 end,
+                separator = true,
+            },
+            {
+                text = T(_("Check for update (%1)"), VERSION),
+                callback = function() NetworkMgr:runWhenOnline(check_update) end,
             },
         },
     }
